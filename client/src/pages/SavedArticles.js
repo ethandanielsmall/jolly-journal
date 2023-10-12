@@ -9,36 +9,70 @@ import {
   Row,
 } from 'react-bootstrap';
 
+import { removeArticleId, getSavedArticleIds } from '../utils/localStorage';
+
 import { GET_ME } from '../utils/queries';
 import { REMOVE_ARTICLE } from '../utils/mutations';
 import Auth from '../utils/auth';
-import { removeArticleId } from '../utils/localStorage';
 
 const SavedArticles = () => {
   const [savedArticles, setSavedArticles] = useState([]);
 
-  const { loading, data } = useQuery(GET_ME);
+  // Get saved article ids from localStorage when the page loads
+  const [savedArticleIds, setsavedArticleIds] = useState(getSavedArticleIds());
+  //const { loading, data } = useQuery(GET_ME);
+
+
+  // get saved articles from DB
+  const userData = useQuery(GET_ME);
+  const savedUserId = userData.data?.me || {};
+
+
   const [removeArticle] = useMutation(REMOVE_ARTICLE);
 
+  //  if (userData.data?.me.savedArticles !== undefined && Auth.loggedIn()) {
+  // Get saved articles from User collection in DB to display
   useEffect(() => {
-    if (data && data.me) {
-      setSavedArticles(data.me.savedArticles);
-    }
-  }, [data]);
+    if (userData.data?.me.savedArticles !== undefined) {
 
-  const handleRemoveArticle = async (articleId) => {
+      setSavedArticles(userData.data?.me.savedArticles);
+      console.log("Saved articles is: ", savedArticles);
+    }
+  }, [userData], savedArticles);
+  // }, []);
+
+
+  const handleRemoveArticle = async (e, articleId) => {
+    e.preventDefault(); // Prevent the default navigation behavior
     try {
+      console.log("Removing article with id: ", articleId);
+
+      // const { __typename, ...articleData } = articleToSave ;
+      // await saveArticle({ variables: { articleData } });
+
+      //const { __typename, uniqueId } = articleToSave;
+
+      // call mutation to remove article 
       await removeArticle({ variables: { articleId } });
-      setSavedArticles(savedArticles.filter((article) => article.articleId !== articleId));
+      //  await saveArticle({ variables: { articleData } });
+
+
+      // Filter out the removed article 
+      const updatedSavedArticles = savedArticles.filter((article) => article.uniqueId !== articleId);
+      setSavedArticles(updatedSavedArticles);
+      console.log("Updated saved articles is: ", updatedSavedArticles);
+
+      // Remove article from localStorage
       removeArticleId(articleId);
     } catch (err) {
       console.error(err);
     }
   };
 
-  if (loading) {
-    return <p>Loading...</p>;
-  }
+  // if (loading) {
+  //   return <p>Loading...</p>;
+  // }
+
 
   return (
     <Container>
@@ -54,20 +88,18 @@ const SavedArticles = () => {
               {article.image && (
                 <Card.Img src={article.image} alt={`The cover for ${article.title}`} variant="top" />
               )}
-              <a href={article.link} target="_blank" rel="noreferrer">
-                <Card.Body>
-                  <Card.Title>{article.title}</Card.Title>
-                  <Card.Text>{article.description}</Card.Text>
-                  {Auth.loggedIn() && (
-                    <Button
-                      className="btn-block btn-danger"
-                      onClick={() => handleRemoveArticle(article.articleId)}
-                    >
-                      Remove Article
-                    </Button>
-                  )}
-                </Card.Body>
-              </a>
+              <Card.Body>
+                <Card.Title>{article.title}</Card.Title>
+                <Card.Text>{article.description}</Card.Text>
+                {Auth.loggedIn() && (
+                  <Button
+                    className="btn-block btn-danger"
+                    onClick={(e) => handleRemoveArticle(e, article.uniqueId)}
+                  >
+                    Remove Article
+                  </Button>
+                )}
+              </Card.Body>
             </Card>
           </Col>
         ))}
